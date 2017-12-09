@@ -1,0 +1,1 @@
+INSERT INTO Searches (FlightFrom, FlightTo, FlightDate, Currency) VALUES ("AKL", "LHR", DATE("2018-05-01"), "NZD");
