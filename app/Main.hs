@@ -5,11 +5,13 @@ module Main where
 import Config
 import Control.Monad (forM_)
 import Control.Monad.IO.Class
+import Data.Text.Lazy (fromStrict)
 import DataAccess
 import KiwiAPI
 import System.Environment
 import System.Exit
 import System.IO
+import Text.Mustache
 import Web.Scotty
 
 main :: IO ()
@@ -43,13 +45,22 @@ refreshSearches configPath = do
 runWebServer :: String -> IO ()
 runWebServer configPath = do
   config <- (decodeConfig configPath)
+  let searchSpace = [".", "./templates"]
+  let templateName = "flights.mustache"
+  compiled <- automaticCompile searchSpace templateName
+  case compiled of
+    Left err -> print err
+    Right template -> runScotty config template
+
+runScotty :: Config -> Template -> IO ()
+runScotty config template = do
   scotty 3000 $ do
-    staticPath "templates"
     get "/flights/:id" $ do
       let connectInfo = connectionInfo $ (databaseConfig config)
       searchId <- param "id"
       flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
-      json flights
+      html $ fromStrict $ substitute template flights
+      -- json flights
 
 staticPath :: String -> ScottyM ()
 staticPath path =

@@ -30,6 +30,7 @@ library
                      , aeson
                      , mysql-simple
                      , datetime
+                     , mustache
   default-language:    Haskell2010
 
 executable travel-ticket-watch-exe
@@ -39,6 +40,8 @@ executable travel-ticket-watch-exe
   build-depends:       base
                      , travel-ticket-watch
                      , scotty
+                     , mustache
+                     , text
   default-language:    Haskell2010
 
 test-suite travel-ticket-watch-test
