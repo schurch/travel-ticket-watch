@@ -3,15 +3,18 @@
 module Main where
 
 import Config
+import Data.Text (pack)
 import Control.Monad (forM_)
 import Control.Monad.IO.Class
 import Data.Text.Lazy (fromStrict)
+import Data.Time.Calendar (Day, fromGregorian)
 import DataAccess
 import KiwiAPI
+import Lucid
 import System.Environment
 import System.Exit
 import System.IO
-import Text.Mustache
+import Types
 import Web.Scotty
 
 main :: IO ()
@@ -45,22 +48,24 @@ refreshSearches configPath = do
 runWebServer :: String -> IO ()
 runWebServer configPath = do
   config <- (decodeConfig configPath)
-  let searchSpace = [".", "./templates"]
-  let templateName = "flights.mustache"
-  compiled <- automaticCompile searchSpace templateName
-  case compiled of
-    Left err -> print err
-    Right template -> runScotty config template
+  runScotty config
 
-runScotty :: Config -> Template -> IO ()
-runScotty config template = do
+runScotty :: Config -> IO ()
+runScotty config = do
   scotty 3000 $ do
+    get "/" $ do
+      html $ renderText htmlForSearch
     get "/flights/:id" $ do
       let connectInfo = connectionInfo $ (databaseConfig config)
       searchId <- param "id"
       flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
-      html $ fromStrict $ substitute template flights
-      -- json flights
+      html $ renderText (htmlForFlights flights)
+    post "/searches" $ do
+      let connectInfo = connectionInfo $ (databaseConfig config)
+      from <- param "from"
+      to <- param "to"
+      savedSearchId <- liftIO $ saveSearch connectInfo from to (fromGregorian 2018 5 1)
+      redirect $ fromStrict $ (pack $ "/flights/" ++ (show savedSearchId))
 
 staticPath :: String -> ScottyM ()
 staticPath path =
@@ -68,3 +73,18 @@ staticPath path =
   in get routePattern $ do
        fileName <- param "file"
        file $ "./" ++ path ++ "/" ++ fileName
+
+htmlForSearch :: Html ()
+htmlForSearch = (form_ [action_ "/searches", method_ "post"] (do
+                  (airportSelection "From" "from")
+                  "to"
+                  (airportSelection "To" "to")
+                  (input_ [type_ "submit", value_ "submit"])))
+
+airportSelection :: String -> String -> Html ()
+airportSelection title postValue = (select_ [name_ (pack postValue)] (do
+                   (option_ [value_ "AKL"] "Auckland")
+                   (option_ [value_ "LHR"] "London Heathrow")))
+
+htmlForFlights :: [Flight] -> Html ()
+htmlForFlights flights = (p_ "hello")

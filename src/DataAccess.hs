@@ -6,13 +6,14 @@ module DataAccess
   , updateSearchTimestamp
   , fetchSearches
   , fetchFlightsForSearch
+  , saveSearch
   ) where
 
 import Config
 import Data.DateTime (DateTime, fromSeconds)
 import qualified Data.Int (Int64)
 import Data.Text (Text)
-import Data.Time.Calendar (Day)
+import Data.Time.Calendar (Day, toGregorian)
 import Database.MySQL.Simple
 import Types
 
@@ -30,6 +31,13 @@ saveFlightResponse connectInfo searchID flightResponse = do
     , fromSeconds $ (flightResponseDepartureUTC flightResponse)
     , (flightResponseBookingLink flightResponse)
     , (flightResponseDuration flightResponse))
+
+saveSearch :: ConnectInfo -> String -> String -> Day -> IO (Int)
+saveSearch connectInfo from to date = do
+  conn <- connect connectInfo
+  execute conn "INSERT INTO Searches (FlightFrom, FlightTo, FlightDate, Currency) VALUES (?, ?, DATE(?), 'NZD');" (from, to, (dateToQueryDate date))
+  [Only lastId] <- query_ conn "SELECT LAST_INSERT_ID();"
+  return lastId
 
 updateSearchTimestamp :: ConnectInfo -> Int -> IO (Data.Int.Int64)
 updateSearchTimestamp connectInfo searchID = do
@@ -87,3 +95,8 @@ rowToFlight (flightId, searchId, updatedDate, price, departure, bookingLink, fli
   , bookingLink = bookingLink
   , durationText = flightDurationText
   }
+
+dateToQueryDate :: Day -> String
+dateToQueryDate date =
+  let (year, month, day) = toGregorian date
+  in show year ++ "-" ++ show month ++ "-" ++ show day
