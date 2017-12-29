@@ -32,6 +32,7 @@ data KiwiConfig = KiwiConfig
 
 data AppConfig = AppConfig
   { outdatedIntervalSeconds :: Int
+  , webServerPort :: Int
   } deriving (Eq, Show)
 
 instance FromJSON Config where
@@ -51,5 +52,6 @@ instance FromJSON KiwiConfig where
   parseJSON _ = fail "Expected Object for KiwiConfig value"
 
 instance FromJSON AppConfig where
-  parseJSON (Y.Object v) = AppConfig <$> v .: "outdatedIntervalSeconds"
+  parseJSON (Y.Object v) =
+    AppConfig <$> v .: "outdatedIntervalSeconds" <*> v .: "webServerPort"
   parseJSON _ = fail "Expected Object for AppConfig value"

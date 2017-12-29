@@ -4,6 +4,7 @@ module DataAccess
   ( connectionInfo
   , saveFlightResponse
   , updateSearchTimestamp
+  , fetchSearchWithId
   , fetchSearches
   , fetchFlightsForSearch
   , saveSearch
@@ -12,6 +13,7 @@ module DataAccess
 import Config
 import Data.DateTime (DateTime, fromSeconds)
 import qualified Data.Int (Int64)
+import Data.Maybe (listToMaybe)
 import Data.Text (Text)
 import Data.Time.Calendar (Day, toGregorian)
 import Database.MySQL.Simple
@@ -35,7 +37,10 @@ saveFlightResponse connectInfo searchID flightResponse = do
 saveSearch :: ConnectInfo -> String -> String -> Day -> IO (Int)
 saveSearch connectInfo from to date = do
   conn <- connect connectInfo
-  execute conn "INSERT INTO Searches (FlightFrom, FlightTo, FlightDate, Currency) VALUES (?, ?, DATE(?), 'NZD');" (from, to, (dateToQueryDate date))
+  execute
+    conn
+    "INSERT INTO Searches (FlightFrom, FlightTo, FlightDate, Currency) VALUES (?, ?, DATE(?), 'NZD');"
+    (from, to, (dateToQueryDate date))
   [Only lastId] <- query_ conn "SELECT LAST_INSERT_ID();"
   return lastId
 
@@ -46,6 +51,12 @@ updateSearchTimestamp connectInfo searchID = do
     conn
     "UPDATE Searches SET UpdatedDate=NOW() WHERE SearchID = (?)"
     [searchID]
+
+fetchSearchWithId :: ConnectInfo -> Int -> IO (Maybe Search)
+fetchSearchWithId connectInfo searchId = do
+  conn <- connect connectInfo
+  rows <- query conn "SELECT * FROM Searches WHERE SearchId = (?)" [searchId]
+  return $ listToMaybe $ fmap rowToSearch rows
 
 fetchSearches :: ConnectInfo -> Int -> IO [Search]
 fetchSearches connectInfo outdatedIntervalSeconds = do
