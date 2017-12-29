@@ -69,6 +69,7 @@ runScotty config = do
       to <- param "to"
       date <- param "date"
       handleSearchPost connectInfo from to date
+    staticPath "static"
 
 handleSearchGet :: ConnectInfo -> String -> Int -> ActionM ()
 handleSearchGet connectInfo searchEndpoint searchId = do
@@ -81,7 +82,10 @@ handleSearchGet connectInfo searchEndpoint searchId = do
         Just flight -> do
           flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
           -- liftIO $ saveFlightResponse connectInfo searchId flight
-          html $ renderText $ chromeHtml Nothing $ htmlForFlights flight flights
+          html $
+            renderText $
+            chromeHtml (Just htmlForFlightsHeader) $
+            htmlForFlights flight flights
         Nothing -> html $ renderText $ p_ "Couldn't find flight!"
     Nothing -> html $ renderText $ p_ "Couldn't find search!"
 
@@ -125,17 +129,17 @@ htmlForSearchHeader = do
   script_ [src_ "https://code.jquery.com/ui/1.12.1/jquery-ui.js"] ("" :: String)
   script_
     "\
-        \$( function() {\
-          \$('#datepicker').datepicker();\
-          \$('#datepicker').datepicker('option', 'dateFormat', 'DD, d MM, yy');\
-          \$('#inputForm').submit(function() {\
-              \var date = $('#datepicker').datepicker('getDate');\
-              \var formattedDate = $.datepicker.formatDate('yy-m-d', date);\
-              \$(this).append('<input type=hidden name=date value='+formattedDate+' />');\
-              \return true;\
-          \});\
-        \} );\
-      \"
+      \$( function() {\
+        \$('#datepicker').datepicker();\
+        \$('#datepicker').datepicker('option', 'dateFormat', 'DD, d MM, yy');\
+        \$('#inputForm').submit(function() {\
+          \var date = $('#datepicker').datepicker('getDate');\
+          \var formattedDate = $.datepicker.formatDate('yy-m-d', date);\
+          \$(this).append('<input type=hidden name=date value='+formattedDate+' />');\
+          \return true;\
+        \});\
+      \} );\
+    \"
 
 htmlForSearch :: Html ()
 htmlForSearch =
@@ -153,9 +157,39 @@ airportSelection postValue =
     (option_ [value_ "AKL"] "Auckland")
     (option_ [value_ "LHR"] "London Heathrow")
 
+htmlForFlightsHeader :: Html ()
+htmlForFlightsHeader = do
+  link_ [rel_ "stylesheet", href_ "/static/tablesorter.styles.css"]
+  script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
+  script_ [src_ "/static/jquery.tablesorter.min.js"] ("" :: String)
+  script_
+    "\
+      \$(document).ready(function() {\ 
+        \$('#resultsTable').tablesorter();\
+      \});\ 
+    \"
+
 htmlForFlights :: FlightResponse -> [Flight] -> Html ()
 htmlForFlights currentFlightDetails flights = do
+  let bookingLink = pack (flightResponseBookingLink currentFlightDetails)
   p_ $
-    toHtml $ "Current price" ++ show (flightResponsePrice currentFlightDetails)
+    toHtml $
+    "Current price: $" ++ show (flightResponsePrice currentFlightDetails)
+  p_ $ a_ [href_ bookingLink] "Book now"
   p_ $
-    toHtml $ "Current link" ++ (flightResponseBookingLink currentFlightDetails)
+    table_ [id_ "resultsTable", class_ "tablesorter"] $ do
+      thead_ $
+        tr_ $ do
+          th_ "Date"
+          th_ "Price"
+          th_ "Duration"
+          th_ ""
+      tbody_ $ do mapM_ flightToHtml flights
+
+flightToHtml :: Flight -> Html ()
+flightToHtml flight =
+  tr_ $ do
+    td_ $ toHtml $ show (depature flight)
+    td_ $ toHtml $ show (price flight)
+    td_ $ toHtml (durationText flight)
+    td_ $ a_ [href_ (bookingLink flight)] "Book"

@@ -28,8 +28,8 @@ updatePriceForSearch connectInfo endpoint search = do
 
 cheapestFlightForSearch :: String -> Search -> IO (Maybe FlightResponse)
 cheapestFlightForSearch endpoint search = do
-  response <-
-    getWith (queryParametersFromSearch search) endpoint >>= asJSON :: IO (Response Results)
+  let query = (queryParametersFromSearch search)
+  response <- getWith query endpoint >>= asJSON :: IO (Response Results)
   results <- return $ response ^. responseBody
   return $ findLowestFlight results
 
