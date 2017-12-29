@@ -3,7 +3,7 @@
 module Main where
 
 import Config
-import Control.Monad (forM_)
+import Control.Monad (forM_, void)
 import Control.Monad.IO.Class
 import Data.List.Split
 import Data.Maybe (fromMaybe)
@@ -81,11 +81,17 @@ handleSearchGet connectInfo searchEndpoint searchId = do
       case currentFlightDetails of
         Just flight -> do
           flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
-          -- liftIO $ saveFlightResponse connectInfo searchId flight
-          html $
-            renderText $
-            chromeHtml (Just htmlForFlightsHeader) $
-            htmlForFlights flight flights
+          if length flights == 0
+            then do
+              liftIO $ void $ saveFlightResponse connectInfo searchId flight
+              html $
+                renderText $
+                chromeHtml (Just htmlForFlightsHeader) $
+                htmlForFlights flight flights
+            else html $
+                 renderText $
+                 chromeHtml (Just htmlForFlightsHeader) $
+                 htmlForFlights flight flights
         Nothing -> html $ renderText $ p_ "Couldn't find flight!"
     Nothing -> html $ renderText $ p_ "Couldn't find search!"
 
@@ -176,20 +182,22 @@ htmlForFlights currentFlightDetails flights = do
     toHtml $
     "Current price: $" ++ show (flightResponsePrice currentFlightDetails)
   p_ $ a_ [href_ bookingLink] "Book now"
-  p_ $
-    table_ [id_ "resultsTable", class_ "tablesorter"] $ do
-      thead_ $
-        tr_ $ do
-          th_ "Date"
-          th_ "Price"
-          th_ "Duration"
-          th_ ""
-      tbody_ $ do mapM_ flightToHtml flights
+  if length flights > 0
+    then p_ $
+         table_ [id_ "resultsTable", class_ "tablesorter"] $ do
+           thead_ $
+             tr_ $ do
+               th_ "Date"
+               th_ "Price"
+               th_ "Duration"
+               th_ ""
+           tbody_ $ do mapM_ flightToHtml flights
+    else return ()
 
 flightToHtml :: Flight -> Html ()
 flightToHtml flight =
   tr_ $ do
-    td_ $ toHtml $ show (depature flight)
+    td_ $ toHtml $ show (flightUpdatedDate flight)
     td_ $ toHtml $ show (price flight)
     td_ $ toHtml (durationText flight)
     td_ $ a_ [href_ (bookingLink flight)] "Book"
