@@ -12,13 +12,11 @@ import Text.Mustache
 
 -- Kiwi API Types
 data Results = Results
-  { count :: Int
-  , flights :: [FlightResponse]
+  { flights :: [FlightResponse]
   } deriving (Show, Eq)
 
 instance FromJSON Results where
-  parseJSON =
-    withObject "Results" $ \v -> Results <$> v .: "_results" <*> v .: "data"
+  parseJSON = withObject "Results" $ \v -> Results <$> v .: "data"
 
 data FlightResponse = FlightResponse
   { flightResponsePrice :: Double
