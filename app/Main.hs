@@ -7,7 +7,7 @@ import Config
 import Control.Monad.Reader
 import Data.List (find)
 import Data.List.Split (splitOn)
-import Data.Text (pack)
+import Data.Text (pack, isInfixOf, toLower)
 import Data.Text.Lazy (Text, fromStrict)
 import Data.Time.Calendar (Day, fromGregorian)
 import DataAccess
@@ -87,7 +87,17 @@ application airports = do
   get "/airports/:id" $ do
     airportIdParam <- param "id" :: Action Int
     json $ find (\a -> (airportId a) == airportIdParam) airports
+  get "/airports/filter" $ do
+    query <- param "query" :: Action String
+    json $ filter (doesAirportMatchQuery query) airports
   staticPath "static"
+
+doesAirportMatchQuery :: String -> Airport -> Bool
+doesAirportMatchQuery query airport =
+  let airportName' = toLower $ pack $ airportName airport
+      iata = toLower $ pack $ airportIata airport
+      query' = toLower $ pack query
+  in isInfixOf query' iata || isInfixOf query' airportName'
 
 handleSearchGet :: Int -> Action ()
 handleSearchGet searchId = do

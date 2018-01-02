@@ -27,7 +27,23 @@ data Airport = Airport
   , airportDataSource :: String
   } deriving (Show, Eq, Generic)
 
-instance ToJSON Airport
+-- instance ToJSON Airport
+instance ToJSON Airport where
+  toJSON a =
+    object
+      [ "id" .= airportId a
+      , "name" .= airportName a
+      , "city" .= airportCity a
+      , "country" .= airportCountry a
+      , "iata" .= airportIata a
+      , "icao" .= airportIcao a
+      , "latitude" .= airportLatitude a
+      , "longitude" .= airportLongitude a
+      , "altitude" .= airportAltitude a
+      , "timezone" .= airportTimezone a
+      , "dst" .= airportDst a
+      , "timezoneTz" .= airportTimezoneTz a
+      ]
 
 instance FromJSON Airport
 
