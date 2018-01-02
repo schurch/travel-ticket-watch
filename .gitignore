@@ -21,4 +21,5 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 config.yaml
+deploy.sh
 /.vscode/

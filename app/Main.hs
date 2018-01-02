@@ -3,22 +3,27 @@
 module Main where
 
 import Config
-import Control.Monad (forM_, void)
-import Control.Monad.IO.Class
-import Data.List.Split
-import Data.Maybe (fromMaybe)
+import Control.Monad.Reader
+import Data.List.Split (splitOn)
 import Data.Text (pack)
-import Data.Text.Lazy (fromStrict)
+import Data.Text.Lazy (Text, fromStrict)
 import Data.Time.Calendar (Day, fromGregorian)
 import DataAccess
 import Database.MySQL.Simple (ConnectInfo)
 import KiwiAPI
-import Lucid
+import Lucid (renderText, p_)
+import Pages
 import System.Environment
 import System.Exit
 import System.IO
 import Types
-import Web.Scotty
+import Web.Scotty.Trans
+       (ScottyT, ActionT, get, scottyT, html, param, capture, file,
+        redirect, post)
+
+type App = ScottyT Text (ReaderT Config IO)
+
+type Action = ActionT Text (ReaderT Config IO)
 
 main :: IO ()
 main = do
@@ -51,31 +56,34 @@ refreshSearches configPath = do
 runWebServer :: String -> IO ()
 runWebServer configPath = do
   config <- (decodeConfig configPath)
-  runScotty config
+  scottyT (webServerPort $ appConfig config) (runWithConfig config) application
 
-runScotty :: Config -> IO ()
-runScotty config = do
-  scotty (webServerPort $ appConfig config) $ do
-    get "/" $ do
-      html $ renderText $ chromeHtml (Just htmlForSearchHeader) htmlForSearch
-    get "/searches/:id" $ do
-      let connectInfo = connectionInfo $ (databaseConfig config)
-      let endpoint = (kiwiEndpoint $ kiwiConfig config)
-      searchId <- param "id"
-      handleSearchGet connectInfo endpoint searchId
-    post "/searches" $ do
-      let connectInfo = connectionInfo $ (databaseConfig config)
-      from <- param "from"
-      to <- param "to"
-      date <- param "date"
-      handleSearchPost connectInfo from to date
-    staticPath "static"
+runWithConfig :: Config -> ReaderT Config IO a -> IO a
+runWithConfig config reader = runReaderT reader config
 
-handleSearchGet :: ConnectInfo -> String -> Int -> ActionM ()
-handleSearchGet connectInfo searchEndpoint searchId = do
+application :: App ()
+application = do
+  get "/" $ do
+    html $ renderText $ chromeHtml (Just htmlForSearchHeader) htmlForSearch
+  get "/searches/:id" $ do
+    searchId <- param "id"
+    handleSearchGet searchId
+  post "/searches" $ do
+    from <- param "from"
+    to <- param "to"
+    date <- param "date"
+    handleSearchPost from to date
+  staticPath "static"
+
+handleSearchGet :: Int -> Action ()
+handleSearchGet searchId = do
+  dbConfig <- lift $ asks databaseConfig
+  let connectInfo = connectionInfo dbConfig
   dbSearch <- liftIO $ fetchSearchWithId connectInfo searchId
   case dbSearch of
     Just search -> do
+      kiwiConfig <- lift $ asks kiwiConfig
+      let searchEndpoint = kiwiEndpoint kiwiConfig
       currentFlightDetails <-
         liftIO $ cheapestFlightForSearch searchEndpoint search
       case currentFlightDetails of
@@ -95,8 +103,10 @@ handleSearchGet connectInfo searchEndpoint searchId = do
         Nothing -> html $ renderText $ p_ "Couldn't find flight!"
     Nothing -> html $ renderText $ p_ "Couldn't find search!"
 
-handleSearchPost :: ConnectInfo -> String -> String -> String -> ActionM ()
-handleSearchPost connectInfo from to date = do
+handleSearchPost :: String -> String -> String -> Action ()
+handleSearchPost from to date = do
+  dbConfig <- lift $ asks databaseConfig
+  let connectInfo = connectionInfo dbConfig
   savedSearchId <- liftIO $ saveSearch connectInfo from to (dayFromDate date)
   redirect $ fromStrict $ (pack $ "/searches/" ++ (show savedSearchId))
 
@@ -109,95 +119,9 @@ dayFromDate date =
         (intDateParts !! 1)
         (intDateParts !! 2))
 
-staticPath :: String -> ScottyM ()
+staticPath :: String -> App ()
 staticPath path =
   let routePattern = capture ("/" ++ path ++ "/:file")
   in get routePattern $ do
        fileName <- param "file"
        file $ "./" ++ path ++ "/" ++ fileName
-
-chromeHtml :: Maybe (Html ()) -> Html () -> Html ()
-chromeHtml headerHtml bodyHtml =
-  html_ $ do
-    head_ $ do
-      title_ "Ticket price watch"
-      meta_ [name_ "viewport", content_ "width=device-width, initial-scale=1"]
-      fromMaybe ("" :: Html ()) headerHtml
-    body_ bodyHtml
-
-htmlForSearchHeader :: Html ()
-htmlForSearchHeader = do
-  link_
-    [ rel_ "stylesheet"
-    , href_ "https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css"
-    ]
-  script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
-  script_ [src_ "https://code.jquery.com/ui/1.12.1/jquery-ui.js"] ("" :: String)
-  script_
-    "\
-      \$( function() {\
-        \$('#datepicker').datepicker();\
-        \$('#datepicker').datepicker('option', 'dateFormat', 'DD, d MM, yy');\
-        \$('#inputForm').submit(function() {\
-          \var date = $('#datepicker').datepicker('getDate');\
-          \var formattedDate = $.datepicker.formatDate('yy-m-d', date);\
-          \$(this).append('<input type=hidden name=date value='+formattedDate+' />');\
-          \return true;\
-        \});\
-      \} );\
-    \"
-
-htmlForSearch :: Html ()
-htmlForSearch =
-  form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
-    (airportSelection "from")
-    " to "
-    (airportSelection "to")
-    " on "
-    (input_ [type_ "text", id_ "datepicker"])
-    (input_ [type_ "submit", value_ "Submit"])
-
-airportSelection :: String -> Html ()
-airportSelection postValue =
-  select_ [name_ (pack postValue)] $ do
-    (option_ [value_ "AKL"] "Auckland")
-    (option_ [value_ "LHR"] "London Heathrow")
-
-htmlForFlightsHeader :: Html ()
-htmlForFlightsHeader = do
-  link_ [rel_ "stylesheet", href_ "/static/tablesorter.styles.css"]
-  script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
-  script_ [src_ "/static/jquery.tablesorter.min.js"] ("" :: String)
-  script_
-    "\
-      \$(document).ready(function() {\ 
-        \$('#resultsTable').tablesorter();\
-      \});\ 
-    \"
-
-htmlForFlights :: FlightResponse -> [Flight] -> Html ()
-htmlForFlights currentFlightDetails flights = do
-  let bookingLink = pack (flightResponseBookingLink currentFlightDetails)
-  p_ $
-    toHtml $
-    "Current price: $" ++ show (flightResponsePrice currentFlightDetails)
-  p_ $ a_ [href_ bookingLink] "Book now"
-  if length flights > 0
-    then p_ $
-         table_ [id_ "resultsTable", class_ "tablesorter"] $ do
-           thead_ $
-             tr_ $ do
-               th_ "Date"
-               th_ "Price"
-               th_ "Duration"
-               th_ ""
-           tbody_ $ do mapM_ flightToHtml flights
-    else return ()
-
-flightToHtml :: Flight -> Html ()
-flightToHtml flight =
-  tr_ $ do
-    td_ $ toHtml $ show (flightUpdatedDate flight)
-    td_ $ toHtml $ show (price flight)
-    td_ $ toHtml (durationText flight)
-    td_ $ a_ [href_ (bookingLink flight)] "Book"

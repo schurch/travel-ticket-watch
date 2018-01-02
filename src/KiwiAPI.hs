@@ -6,7 +6,6 @@ module KiwiAPI
   ) where
 
 import Control.Lens
-import Data.List (sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
 import Data.Time.Calendar (Day, toGregorian)
@@ -29,9 +28,11 @@ updatePriceForSearch connectInfo endpoint search = do
 cheapestFlightForSearch :: String -> Search -> IO (Maybe FlightResponse)
 cheapestFlightForSearch endpoint search = do
   let query = (queryParametersFromSearch search)
+  Debug.Trace.trace (show query) return ()
   response <- getWith query endpoint >>= asJSON :: IO (Response Results)
+  Debug.Trace.trace (show response) return ()
   results <- return $ response ^. responseBody
-  return $ findLowestFlight results
+  return $ listToMaybe . flights $ results
 
 queryParametersFromSearch :: Search -> Options
 queryParametersFromSearch search =
@@ -46,23 +47,11 @@ queryParametersFromSearch search =
      param "curr" .~
      [(currency search)] &
      param "partner" .~
-     ["picky"]
+     ["picky"] &
+     param "one_per_date" .~
+     ["1"]
 
 dateToQueryDate :: Day -> String
 dateToQueryDate date =
   let (year, month, day) = toGregorian date
   in show day ++ "/" ++ show month ++ "/" ++ show year
-
-findLowestFlight :: Results -> Maybe FlightResponse
-findLowestFlight results
-  | (length (flights results)) == 0 = Nothing
-  | otherwise = listToMaybe $ sortBy compareFlights (flights results)
-
-compareFlights :: FlightResponse -> FlightResponse -> Ordering
-compareFlights f1 f2
-  | p1 < p2 = LT
-  | p1 > p2 = GT
-  | otherwise = EQ
-  where
-    p1 = flightResponsePrice f1
-    p2 = flightResponsePrice f2

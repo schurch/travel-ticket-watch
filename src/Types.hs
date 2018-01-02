@@ -8,7 +8,6 @@ import Data.DateTime (DateTime)
 import Data.Text (Text)
 import Data.Time.Calendar (Day)
 import GHC.Generics
-import Text.Mustache
 
 -- Kiwi API Types
 data Results = Results
@@ -46,14 +45,6 @@ data Flight = Flight
 instance ToJSON Flight
 
 instance FromJSON Flight
-
-instance ToMustache Flight where
-  toMustache flight =
-    Text.Mustache.object
-      [ "flightId" ~> flightId flight
-      , "price" ~> price flight
-      , "bookingLink" ~> bookingLink flight
-      ]
 
 data Search = Search
   { searchId :: Int
