@@ -2,14 +2,16 @@
 
 module Main where
 
+import Airports
 import Config
 import Control.Monad.Reader
+import Data.List (find)
 import Data.List.Split (splitOn)
 import Data.Text (pack)
 import Data.Text.Lazy (Text, fromStrict)
 import Data.Time.Calendar (Day, fromGregorian)
 import DataAccess
-import Database.MySQL.Simple (ConnectInfo)
+import Debug.Trace
 import KiwiAPI
 import Lucid (renderText, p_)
 import Pages
@@ -19,7 +21,7 @@ import System.IO
 import Types
 import Web.Scotty.Trans
        (ScottyT, ActionT, get, scottyT, html, param, capture, file,
-        redirect, post)
+        redirect, post, json)
 
 type App = ScottyT Text (ReaderT Config IO)
 
@@ -56,23 +58,35 @@ refreshSearches configPath = do
 runWebServer :: String -> IO ()
 runWebServer configPath = do
   config <- (decodeConfig configPath)
-  scottyT (webServerPort $ appConfig config) (runWithConfig config) application
+  airports <- loadAirportsFrom "airports.csv"
+  scottyT
+    (webServerPort $ appConfig config)
+    (runWithConfig config)
+    (application airports)
 
 runWithConfig :: Config -> ReaderT Config IO a -> IO a
 runWithConfig config reader = runReaderT reader config
 
-application :: App ()
-application = do
+application :: [Airport] -> App ()
+application airports = do
   get "/" $ do
-    html $ renderText $ chromeHtml (Just htmlForSearchHeader) htmlForSearch
+    html $
+      renderText $
+      chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports)
   get "/searches/:id" $ do
     searchId <- param "id"
+    -- TODO: Validate search Id
     handleSearchGet searchId
   post "/searches" $ do
     from <- param "from"
     to <- param "to"
     date <- param "date"
+    -- TODO: Validate parameters
     handleSearchPost from to date
+  get "/airports" $ do json $ airports
+  get "/airports/:id" $ do
+    airportIdParam <- param "id" :: Action Int
+    json $ find (\a -> (airportId a) == airportIdParam) airports
   staticPath "static"
 
 handleSearchGet :: Int -> Action ()
@@ -107,6 +121,7 @@ handleSearchPost :: String -> String -> String -> Action ()
 handleSearchPost from to date = do
   dbConfig <- lift $ asks databaseConfig
   let connectInfo = connectionInfo dbConfig
+  -- TODO: Try and lookup exiting search first
   savedSearchId <- liftIO $ saveSearch connectInfo from to (dayFromDate date)
   redirect $ fromStrict $ (pack $ "/searches/" ++ (show savedSearchId))
 

@@ -9,6 +9,28 @@ import Data.Text (Text)
 import Data.Time.Calendar (Day)
 import GHC.Generics
 
+-- Airport
+data Airport = Airport
+  { airportId :: Int
+  , airportName :: String
+  , airportCity :: String
+  , airportCountry :: String
+  , airportIata :: String
+  , airportIcao :: String
+  , airportLatitude :: Double
+  , airportLongitude :: Double
+  , airportAltitude :: Int
+  , airportTimezone :: String
+  , airportDst :: String
+  , airportTimezoneTz :: String
+  , airportType :: String
+  , airportDataSource :: String
+  } deriving (Show, Eq, Generic)
+
+instance ToJSON Airport
+
+instance FromJSON Airport
+
 -- Kiwi API Types
 data Results = Results
   { flights :: [FlightResponse]

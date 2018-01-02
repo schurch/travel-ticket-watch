@@ -47,8 +47,8 @@ htmlForSearchHeader = do
       \} );\
     \"
 
-htmlForSearch :: Html ()
-htmlForSearch =
+htmlForSearch :: [Airport] -> Html ()
+htmlForSearch airports =
   form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
     (airportSelection "from")
     " to "
@@ -82,6 +82,7 @@ htmlForFlights currentFlightDetails flights = do
   p_ $
     toHtml $
     "Current price: $" ++ show (flightResponsePrice currentFlightDetails)
+    -- TODO: Show flight date
   p_ $ a_ [href_ bookingLink] "Book now"
   if length flights > 0
     then p_ $
