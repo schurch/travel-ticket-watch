@@ -13,7 +13,7 @@ $(function () {
     });
 });
 
-function handlerForInputName(inputName) {
+function handlerForInputName(inputName, inputBoxSelector) {
     return {
         source: function (request, response) {
             $.ajax({
@@ -37,11 +37,23 @@ function handlerForInputName(inputName) {
             var iata = ui.item.iata;
             $('#inputForm').find('input[name=' + inputName + ']').remove();
             $('#inputForm').append('<input type=hidden name=' + inputName + ' value=' + iata + ' />');
+        },
+        change: function (event, ui) {
+            if (ui.item == null) {
+                $(inputBoxSelector).val('');
+                $(inputBoxSelector).focus();
+            }
+        },
+        autoFocus: true,
+        open: function (result) {
+            if (navigator.userAgent.match(/(iPod|iPhone|iPad)/)) {
+                $('.ui-autocomplete').off('menufocus hover mouseover');
+            }
         }
     };
 }
 
 $(function () {
-    $("#fromAirportTextInput").autocomplete(handlerForInputName("from"));
-    $("#toAirportTextInput").autocomplete(handlerForInputName("to"));
+    $("#fromAirportTextInput").autocomplete(handlerForInputName("from", "#fromAirportTextInput"));
+    $("#toAirportTextInput").autocomplete(handlerForInputName("to", "#toAirportTextInput"));
 });
