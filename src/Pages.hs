@@ -32,27 +32,14 @@ htmlForSearchHeader = do
     ]
   script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
   script_ [src_ "https://code.jquery.com/ui/1.12.1/jquery-ui.js"] ("" :: String)
-  script_
-    "\
-      \$( function() {\
-        \$('#datepicker').datepicker();\
-        \$('#datepicker').datepicker('option', 'dateFormat', 'DD, d MM, yy');\
-        \$('#inputForm').submit(function() {\
-          \$(this).find(\"input[name='date']\").remove();\
-          \var date = $('#datepicker').datepicker('getDate');\
-          \var formattedDate = $.datepicker.formatDate('yy-m-d', date);\
-          \$(this).append('<input type=hidden name=date value='+formattedDate+' />');\
-          \return true;\
-        \});\
-      \} );\
-    \"
+  script_ [src_ "/static/search.helpers.js"] ("" :: String)
 
 htmlForSearch :: [Airport] -> Html ()
 htmlForSearch airports =
   form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
-    (airportSelection "from")
+    (input_ [type_ "text", id_ "fromAirportTextInput"])
     " to "
-    (airportSelection "to")
+    (input_ [type_ "text", id_ "toAirportTextInput"])
     " on "
     (input_ [type_ "text", id_ "datepicker"])
     (input_ [type_ "submit", value_ "Submit"])
@@ -69,12 +56,7 @@ htmlForFlightsHeader = do
   link_ [rel_ "stylesheet", href_ "/static/tablesorter.styles.css"]
   script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
   script_ [src_ "/static/jquery.tablesorter.min.js"] ("" :: String)
-  script_
-    "\
-      \$(document).ready(function() {\ 
-        \$('#resultsTable').tablesorter();\
-      \});\ 
-    \"
+  script_ [src_ "/static/flight.helpers.js"] ("" :: String)
 
 htmlForFlights :: FlightResponse -> [Flight] -> Html ()
 htmlForFlights currentFlightDetails flights = do

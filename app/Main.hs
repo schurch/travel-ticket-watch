@@ -88,16 +88,16 @@ application airports = do
     airportIdParam <- param "id" :: Action Int
     json $ find (\a -> (airportId a) == airportIdParam) airports
   get "/airports/filter" $ do
-    query <- param "query" :: Action String
-    json $ filter (doesAirportMatchQuery query) airports
+    term <- param "term" :: Action String
+    json $ filter (doesAirportMatchQuery term) airports
   staticPath "static"
 
 doesAirportMatchQuery :: String -> Airport -> Bool
-doesAirportMatchQuery query airport =
+doesAirportMatchQuery term airport =
   let airportName' = toLower $ pack $ airportName airport
       iata = toLower $ pack $ airportIata airport
-      query' = toLower $ pack query
-  in isInfixOf query' iata || isInfixOf query' airportName'
+      term' = toLower $ pack term
+  in isInfixOf term' iata || isInfixOf term' airportName'
 
 handleSearchGet :: Int -> Action ()
 handleSearchGet searchId = do
