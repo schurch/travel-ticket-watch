@@ -105,27 +105,33 @@ handleSearchGet searchId = do
   let connectInfo = connectionInfo dbConfig
   dbSearch <- liftIO $ fetchSearchWithId connectInfo searchId
   case dbSearch of
-    Just search -> do
-      kiwiConfig <- lift $ asks kiwiConfig
-      let searchEndpoint = kiwiEndpoint kiwiConfig
-      currentFlightDetails <-
-        liftIO $ cheapestFlightForSearch searchEndpoint search
-      case currentFlightDetails of
-        Just flight -> do
-          flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
-          if length flights == 0
-            then do
-              liftIO $ void $ saveFlightResponse connectInfo searchId flight
-              html $
-                renderText $
-                chromeHtml (Just htmlForFlightsHeader) $
-                htmlForFlights flight flights
-            else html $
-                 renderText $
-                 chromeHtml (Just htmlForFlightsHeader) $
-                 htmlForFlights flight flights
-        Nothing -> html $ renderText $ p_ "Couldn't find flight!"
+    Just search -> renderSearchHtml search
     Nothing -> html $ renderText $ p_ "Couldn't find search!"
+
+renderSearchHtml :: Search -> Action ()
+renderSearchHtml search = do
+  kiwiConfig <- lift $ asks kiwiConfig
+  let searchEndpoint = kiwiEndpoint kiwiConfig
+  currentFlightDetails <- liftIO $ cheapestFlightForSearch searchEndpoint search
+  case currentFlightDetails of
+    Just flight -> do
+      renderSearchResultHtml (searchId search) flight
+    Nothing -> html $ renderText $ p_ "Couldn't find flight!"
+
+renderSearchResultHtml :: Int -> FlightResponse -> Action ()
+renderSearchResultHtml searchId flight = do
+  dbConfig <- lift $ asks databaseConfig
+  let connectInfo = connectionInfo dbConfig
+  flights <- liftIO $ fetchFlightsForSearch connectInfo searchId
+  if length flights == 0
+    then do
+      liftIO $ void $ saveFlightResponse connectInfo searchId flight
+      html $
+        renderText $
+        chromeHtml (Just htmlForFlightsHeader) $ htmlForFlights flight flights
+    else html $
+         renderText $
+         chromeHtml (Just htmlForFlightsHeader) $ htmlForFlights flight flights
 
 handleSearchPost :: String -> String -> String -> Action ()
 handleSearchPost from to date = do
