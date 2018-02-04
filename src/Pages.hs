@@ -38,8 +38,8 @@ htmlForSearchHeader = do
     , href_ "/static/styles.css"
     ]
 
-htmlForSearch :: [Airport] -> Html ()
-htmlForSearch airports = do
+htmlForSearch :: [Airport] -> Maybe String -> Html ()
+htmlForSearch airports errorMessage  = do
   h1_ [id_ "header"] "Ticket Price Watch"
   p_ [] "Keep an eye on the cost of a flight."
   p_ [] "Check back to see how the cost changes over time."
@@ -47,10 +47,13 @@ htmlForSearch airports = do
     h3_ [] "Start searching"
     div_ [id_ "divider"] ""
     form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
-      (input_ [type_ "text", id_ "fromAirportTextInput"])
-      (input_ [type_ "text", id_ "toAirportTextInput"])
-      (input_ [type_ "text", id_ "datepicker"])
+      (input_ [type_ "text", id_ "fromAirportTextInput", placeholder_ "From"])
+      (input_ [type_ "text", id_ "toAirportTextInput", placeholder_ "To"])
+      (input_ [type_ "text", id_ "datepicker", placeholder_ "On"])
       (input_ [type_ "submit", value_ "Submit"])
+    case errorMessage of
+      Nothing -> "" :: Html ()
+      Just message -> div_ [style_ "margin-top: 10px"] $ toHtml message
 
 airportSelection :: String -> Html ()
 airportSelection postValue =

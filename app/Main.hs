@@ -7,8 +7,8 @@ import Config
 import Control.Monad.Reader
 import Data.List (find)
 import Data.List.Split (splitOn)
-import Data.Text (pack, isInfixOf, toLower)
-import Data.Text.Lazy (Text, fromStrict)
+import Data.Text (pack, isInfixOf, toLower, unpack)
+import Data.Text.Lazy (Text, fromStrict, toStrict)
 import Data.Time.Calendar (Day, fromGregorian)
 import DataAccess
 import Debug.Trace
@@ -18,10 +18,11 @@ import Pages
 import System.Environment
 import System.Exit
 import System.IO
+import Data.Text (unpack)
 import Types
 import Web.Scotty.Trans
        (ScottyT, ActionT, get, scottyT, html, param, capture, file,
-        redirect, post, json)
+        redirect, post, json, params, Param)
 
 type App = ScottyT Text (ReaderT Config IO)
 
@@ -72,17 +73,20 @@ application airports = do
   get "/" $ do
     html $
       renderText $
-      chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports)
+      chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports Nothing)
   get "/searches/:id" $ do
     searchId <- param "id"
     -- TODO: Validate search Id
     handleSearchGet searchId
   post "/searches" $ do
-    from <- param "from"
-    to <- param "to"
-    date <- param "date"
-    -- TODO: Validate parameters
-    handleSearchPost from to date
+    params <- params
+    validatedParams <- return $ validateSearchParams params
+    case validatedParams of
+      Left error -> html $
+        renderText $
+        chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports $ Just error)
+      Right (from, to, date) -> 
+        handleSearchPost from to date
   get "/airports" $ do json $ airports
   get "/airports/:id" $ do
     airportIdParam <- param "id" :: Action Int
@@ -91,6 +95,10 @@ application airports = do
     term <- param "term" :: Action String
     json $ filter (doesAirportMatchQuery term) airports
   staticPath "static"
+
+validateSearchParams :: [Param] -> Either String (String, String, String)
+validateSearchParams [("from", from), ("to", to), ("date", date)] = Right (unpack $ toStrict from, unpack $ toStrict to, unpack $ toStrict date)
+validateSearchParams _ = Left "Please specify source, destination and travel date."
 
 doesAirportMatchQuery :: String -> Airport -> Bool
 doesAirportMatchQuery term airport =
