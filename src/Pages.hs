@@ -33,16 +33,24 @@ htmlForSearchHeader = do
   script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
   script_ [src_ "https://code.jquery.com/ui/1.12.1/jquery-ui.js"] ("" :: String)
   script_ [src_ "/static/search.helpers.js"] ("" :: String)
+  link_
+    [ rel_ "stylesheet"
+    , href_ "/static/styles.css"
+    ]
 
 htmlForSearch :: [Airport] -> Html ()
-htmlForSearch airports =
-  form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
-    (input_ [type_ "text", id_ "fromAirportTextInput"])
-    " to "
-    (input_ [type_ "text", id_ "toAirportTextInput"])
-    " on "
-    (input_ [type_ "text", id_ "datepicker"])
-    (input_ [type_ "submit", value_ "Submit"])
+htmlForSearch airports = do
+  h1_ [id_ "header"] "Ticket Price Watch"
+  p_ [] "Keep an eye on the cost of a flight."
+  p_ [] "Check back to see how the cost changes over time."
+  div_ [class_ "search-container"] $ do
+    h3_ [] "Start searching"
+    div_ [id_ "divider"] ""
+    form_ [id_ "inputForm", action_ "/searches", method_ "post"] $ do
+      (input_ [type_ "text", id_ "fromAirportTextInput"])
+      (input_ [type_ "text", id_ "toAirportTextInput"])
+      (input_ [type_ "text", id_ "datepicker"])
+      (input_ [type_ "submit", value_ "Submit"])
 
 airportSelection :: String -> Html ()
 airportSelection postValue =
