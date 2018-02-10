@@ -14,14 +14,14 @@ import Lucid
 import Types
 
 -- Chrome
-chromeHtml :: Maybe (Html ()) -> Html () -> Html ()
-chromeHtml headerHtml bodyHtml =
+chromeHtml :: Maybe (Html ()) -> Html () -> Maybe String -> Html ()
+chromeHtml headerHtml bodyHtml bodyId =
   html_ $ do
     head_ $ do
       title_ "Ticket price watch"
       meta_ [name_ "viewport", content_ "width=device-width, initial-scale=1"]
       fromMaybe ("" :: Html ()) headerHtml
-    body_ bodyHtml
+    body_ [id_ (fromMaybe (pack "") (pack <$> bodyId))] bodyHtml
 
 -- Search
 htmlForSearchHeader :: Html ()
@@ -68,6 +68,11 @@ htmlForFlightsHeader = do
   script_ [src_ "https://code.jquery.com/jquery-1.12.4.js"] ("" :: String)
   script_ [src_ "/static/jquery.tablesorter.min.js"] ("" :: String)
   script_ [src_ "/static/flight.helpers.js"] ("" :: String)
+  link_
+    [ rel_ "stylesheet"
+    , href_ "/static/styles.css"
+    ]
+
 
 htmlForFlights :: FlightResponse -> [Flight] -> Html ()
 htmlForFlights currentFlightDetails flights = do

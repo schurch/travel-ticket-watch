@@ -1,0 +1,26 @@
+<html>
+    <head>
+	<title>Ticket price watch</title>
+	<meta content="width=device-width, initial-scale=1" name="viewport" />
+	<link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet" />
+	<link href="/static/styles.css" rel="stylesheet" />
+	<script src="https://code.jquery.com/jquery-1.12.4.js" ></script>
+	<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+	<script src="/static/search.helpers.js"></script>
+    </head>
+    <body id="index">
+	<h1 id="header">Travel Ticket Watch</h1>
+	<p>Keep an eye on the cost of flight.</p>
+	<p>Check back to see how the cost changes over time.</p>
+	<div class="search-container">
+	    <h3>Start searching</h3>
+	    <div id="divider"></div>
+	    <form action="/searches" method="post" id="inputForm">
+		<input id="fromAirportTextInput" placeholder="From" type="text"/>
+		<input id="toAirportTextInput" placeholder="To" type="text"/>
+		<input id="datepicker" placeholder="On" type="text"/>
+		<input value="Search" type="submit"/>
+	    </form>
+	</div>
+    </body>
+</html>

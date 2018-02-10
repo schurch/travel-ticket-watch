@@ -5,11 +5,12 @@ module Main where
 import Airports
 import Config
 import Control.Monad.Reader
-import Data.List (find)
+import Data.List (find, intercalate)
 import Data.List.Split (splitOn)
 import Data.Text (pack, isInfixOf, toLower, unpack)
 import Data.Text.Lazy (Text, fromStrict, toStrict)
 import Data.Time.Calendar (Day, fromGregorian)
+import Data.Maybe
 import DataAccess
 import Debug.Trace
 import KiwiAPI
@@ -18,6 +19,7 @@ import Pages
 import System.Environment
 import System.Exit
 import System.IO
+import Debug.Trace
 import Data.Text (unpack)
 import Types
 import Web.Scotty.Trans
@@ -73,7 +75,7 @@ application airports = do
   get "/" $ do
     html $
       renderText $
-      chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports Nothing)
+      chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports Nothing) $ Just "index"
   get "/searches/:id" $ do
     searchId <- param "id"
     -- TODO: Validate search Id
@@ -84,8 +86,9 @@ application airports = do
     case validatedParams of
       Left error -> html $
         renderText $
-        chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports $ Just error)
-      Right (from, to, date) -> 
+        chromeHtml (Just htmlForSearchHeader) (htmlForSearch airports $ Just error) $ Just "index"
+      Right (from, to, date) -> do
+        traceShowM $ "from: " ++ from ++ " to: " ++ to ++ " date: " ++ date
         handleSearchPost from to date
   get "/airports" $ do json $ airports
   get "/airports/:id" $ do
@@ -97,8 +100,25 @@ application airports = do
   staticPath "static"
 
 validateSearchParams :: [Param] -> Either String (String, String, String)
-validateSearchParams [("from", from), ("to", to), ("date", date)] = Right (unpack $ toStrict from, unpack $ toStrict to, unpack $ toStrict date)
-validateSearchParams _ = Left "Please specify source, destination and travel date."
+validateSearchParams params = if length missingParams > 0
+                              then Left ("Please provide values for " ++ (intercalate ", " (lazyToString <$> missingParams)))
+                              else Right (elementWithName "from" params, elementWithName "to" params, elementWithName "date" params)
+  where
+    expectedParams = ["from", "to", "date"] :: [Text]
+    paramNames = map fst params
+    missingParams = filter (\m -> m /= "") $
+      (missingParamErrorMessage paramNames) <$> expectedParams
+    elementWithName :: String -> [Param] -> String
+    elementWithName name elements = fromMaybe "" $ fmap (lazyToString . snd) $ find (\e -> (fst e) == (fromStrict . pack) name) elements
+
+lazyToString :: Text -> String
+lazyToString = unpack . toStrict
+
+missingParamErrorMessage :: [Text] -> Text -> Text
+missingParamErrorMessage expectedParams paramName =
+  if paramName `elem` expectedParams
+  then ""
+  else paramName
 
 doesAirportMatchQuery :: String -> Airport -> Bool
 doesAirportMatchQuery term airport =
@@ -136,10 +156,10 @@ renderSearchResultHtml searchId flight = do
       liftIO $ void $ saveFlightResponse connectInfo searchId flight
       html $
         renderText $
-        chromeHtml (Just htmlForFlightsHeader) $ htmlForFlights flight flights
+        chromeHtml (Just htmlForFlightsHeader) (htmlForFlights flight flights) $ Just "search"
     else html $
          renderText $
-         chromeHtml (Just htmlForFlightsHeader) $ htmlForFlights flight flights
+         chromeHtml (Just htmlForFlightsHeader) (htmlForFlights flight flights) $ Just "search"
 
 handleSearchPost :: String -> String -> String -> Action ()
 handleSearchPost from to date = do
